@@ -5,13 +5,22 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+export const GroveColors = {
+  green: '#2D6A4F',
+  greenLight: '#95D5B2',
+  amber: '#F4A261',
+  red: '#E76F51',
+  cream: '#FEFAE0',
+  bark: '#6B4226',
+};
+
+const tintColorLight = GroveColors.green;
+const tintColorDark = GroveColors.greenLight;
 
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#fff',
+    background: '#FAFAF8',
     tint: tintColorLight,
     icon: '#687076',
     tabIconDefault: '#687076',

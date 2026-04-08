@@ -1,98 +1,120 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { TreeVisual } from '@/components/TreeVisual';
+import { StreakBadge } from '@/components/StreakBadge';
+import { ProgressBar } from '@/components/ProgressBar';
+import { useAppState, useCurrentMonth } from '@/contexts/AppContext';
+import { getTotalSpent, getTotalBudgeted, getTreeHealth, getMonthDisplayName } from '@/utils/budget';
+import { GroveColors } from '@/constants/theme';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const { state, dispatch } = useAppState();
+  const month = useCurrentMonth();
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  useEffect(() => {
+    if (state && state.onboardingComplete) {
+      dispatch({ type: 'CHECK_IN' });
+    }
+  }, [state, dispatch]);
+
+  if (!state || !month) return null;
+
+  const totalSpent = getTotalSpent(month);
+  const totalBudget = getTotalBudgeted(month);
+  const remaining = totalBudget - totalSpent;
+  const health = getTreeHealth(month, state.streak);
+
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <ThemedText type="title" style={styles.title}>
+            {getMonthDisplayName(state.currentMonthKey)}
+          </ThemedText>
+
+          <TreeVisual health={health} streak={state.streak} />
+          <StreakBadge streak={state.streak} wateringCans={state.wateringCans} />
+
+          <View style={styles.card}>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryItem}>
+                <ThemedText style={styles.summaryLabel}>Budget</ThemedText>
+                <ThemedText style={styles.summaryValue}>${totalBudget.toFixed(2)}</ThemedText>
+              </View>
+              <View style={styles.summaryItem}>
+                <ThemedText style={styles.summaryLabel}>Spent</ThemedText>
+                <ThemedText style={styles.summaryValue}>${totalSpent.toFixed(2)}</ThemedText>
+              </View>
+              <View style={styles.summaryItem}>
+                <ThemedText style={styles.summaryLabel}>Left</ThemedText>
+                <ThemedText
+                  style={[styles.summaryValue, remaining < 0 && { color: GroveColors.red }]}
+                >
+                  ${remaining.toFixed(2)}
+                </ThemedText>
+              </View>
+            </View>
+            <ProgressBar spent={totalSpent} total={totalBudget} />
+          </View>
+
+          {state.budgetMode === 'buildup' && (
+            <View style={styles.buildupCard}>
+              <ThemedText style={styles.buildupTitle}>🌱 Building your buffer</ThemedText>
+              <ThemedText style={styles.buildupBody}>
+                {"Save toward having a full month of income ($"}{month.income.toFixed(2)}{") set aside. "}
+                {"Once you're ready, switch to real last-month budgeting!"}
+              </ThemedText>
+              <Pressable
+                style={styles.readyButton}
+                onPress={() => dispatch({ type: 'SWITCH_TO_FULL_MODE' })}
+              >
+                <ThemedText style={styles.readyButtonText}>{"I'm ready — switch now"}</ThemedText>
+              </Pressable>
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: { flex: 1 },
+  safe: { flex: 1 },
+  scroll: { paddingHorizontal: 24, paddingBottom: 32 },
+  title: { fontSize: 24, textAlign: 'center', marginTop: 8 },
+  card: {
+    marginTop: 24,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 16,
+    padding: 20,
+    gap: 16,
+  },
+  summaryRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  summaryItem: { alignItems: 'center', gap: 4 },
+  summaryLabel: { fontSize: 13, opacity: 0.6, fontWeight: '500' },
+  summaryValue: { fontSize: 20, fontWeight: '700' },
+  buildupCard: {
+    marginTop: 20,
+    backgroundColor: GroveColors.cream,
+    borderRadius: 16,
+    padding: 20,
+    gap: 12,
+  },
+  buildupTitle: { fontSize: 17, fontWeight: '700' },
+  buildupBody: { fontSize: 14, lineHeight: 20, opacity: 0.8 },
+  readyButton: {
+    borderWidth: 2,
+    borderColor: GroveColors.green,
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: 'center',
-    gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  readyButtonText: { color: GroveColors.green, fontWeight: '600', fontSize: 15 },
 });
